@@ -40,6 +40,8 @@ import android.view.animation.AnimationUtils;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ProgressBar;
+import android.widget.Spinner;
+import android.widget.Toast;
 
 import com.squareup.okhttp.HttpUrl;
 import com.squareup.otto.Subscribe;
@@ -66,7 +68,7 @@ public class LoginActivity extends Activity implements OnClickListener {
 
     private EditText usernameEditText;
     private EditText passwordEditText;
-    private EditText serverEditText;
+    private Spinner serverSpinner;
     private Button loginButton;
     private ProgressBar progressBar;
     private View viewsContainer;
@@ -101,7 +103,7 @@ public class LoginActivity extends Activity implements OnClickListener {
         viewsContainer = findViewById(R.id.login_views_container);
         usernameEditText = (EditText) findViewById(R.id.username);
         passwordEditText = (EditText) findViewById(R.id.password);
-        serverEditText = (EditText) findViewById(R.id.server_url);
+        serverSpinner = (Spinner) findViewById(R.id.server_url);
         loginButton = (Button) findViewById(R.id.login_button);
 
         String server = null;//mPrefs.getServerUrl();
@@ -124,7 +126,7 @@ public class LoginActivity extends Activity implements OnClickListener {
             password = "";
         }
 
-        serverEditText.setText(server);
+       // serverEditText.setText(server);
         usernameEditText.setText(username);
         passwordEditText.setText(password);
 
@@ -137,7 +139,15 @@ public class LoginActivity extends Activity implements OnClickListener {
     public void onClick(View v) {
         String username = usernameEditText.getText().toString();
         String password = passwordEditText.getText().toString();
-        String serverURL = serverEditText.getText().toString();
+
+        // If default spinner option is selected then user should be warned
+        if(serverSpinner.getSelectedItemPosition()==0) {
+            Toast.makeText(LoginActivity.this,
+                    "       ERROR      " +
+                            "\nPlease Select a Server URL", Toast.LENGTH_LONG).show();
+            return;
+        }
+        String serverURL = serverSpinner.getSelectedItem().toString();
 
         //remove whitespace as last character for username
         if (username.charAt(username.length() - 1) == ' ') {
@@ -213,7 +223,7 @@ public class LoginActivity extends Activity implements OnClickListener {
     }
 
     private void handleUser() {
-        mPrefs.putServerUrl(serverEditText.getText().toString());
+        mPrefs.putServerUrl(serverSpinner.getSelectedItem().toString());
         mPrefs.putUserName(usernameEditText.getText().toString());
         launchMainActivity();
     }

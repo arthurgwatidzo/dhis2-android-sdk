@@ -233,4 +233,15 @@
     <string name="detailed_info_status_row">Please press the complete button when you are finished with entering data. Press the validate button to check if the entered data is valid.</string>
 
 
+    <!--Default String in Server URL spinner -->
+    <string name="serverurl_prompt">Select a Server URL</string>
+
+
+    <!-- String array for server instance url -->
+    <string-array name="url_array">
+        <item>\t\t\t[Select a Server URL]</item>
+        <item>http://ishp.dhis.dhmis.org/training</item>
+        <item>http://ishp.dhis.dhmis.org/staging</item>
+    </string-array>
+
 </resources>
