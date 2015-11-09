@@ -39,10 +39,36 @@ import android.view.animation.Animation;
 import android.view.animation.AnimationUtils;
 import android.widget.Button;
 import android.widget.EditText;
+
 import android.widget.ProgressBar;
 import android.widget.Spinner;
 import android.widget.Toast;
+import android.app.ProgressDialog;
+import android.app.ProgressDialog;
+import android.content.Context;
+import android.content.DialogInterface;
+import android.content.Intent;
+import android.content.pm.ApplicationInfo;
+import android.net.Uri;
+import android.os.AsyncTask;
+import android.os.Build;
+import android.os.Bundle;
+import android.os.Environment;
+import android.os.PowerManager;
+import android.util.Log;
+import android.view.Gravity;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
 
+import java.net.URL;
+import java.util.Date;
+import java.util.concurrent.Executors;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 import com.squareup.okhttp.HttpUrl;
 import com.squareup.otto.Subscribe;
 
@@ -74,6 +100,9 @@ public class LoginActivity extends Activity implements OnClickListener {
     private View viewsContainer;
 
     private AppPreferences mPrefs;
+    // declare the dialog as a member field of your activity
+    ProgressDialog mProgressDialog;
+    // public static Date sdate,newdevicedate;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -82,6 +111,30 @@ public class LoginActivity extends Activity implements OnClickListener {
 
         mPrefs = new AppPreferences(getApplicationContext());
         setupUI();
+
+        /*
+        @Arthur :Functionality to add the Auto-Download + Auto-Update Functionality
+         */
+        //@Arthur:instantiate it within the onCreate method
+        mProgressDialog = new ProgressDialog(LoginActivity.this);
+        mProgressDialog.setMessage("A new app update is available");
+        mProgressDialog.setIndeterminate(true);
+        mProgressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+        mProgressDialog.setCancelable(true);
+
+
+        //@Arthur:execute this when the downloader must be fired
+        final DownloadTask downloadTask = new DownloadTask(LoginActivity.this);
+        downloadTask.execute("http://hisp.org/downloads/public/dhis2/mobile/app-release.apk");
+
+        mProgressDialog.setOnCancelListener(new DialogInterface.OnCancelListener() {
+            @Override
+            public void onCancel(DialogInterface dialog) {
+                downloadTask.cancel(true);
+                Log.e(CLASS_TAG, "onCancel Method Invoked!");
+            }
+        });
+
     }
 
     @Override
@@ -89,6 +142,21 @@ public class LoginActivity extends Activity implements OnClickListener {
         super.onPause();
         Dhis2Application.bus.unregister(this);
     }
+
+    //@Arthur : method to do APK installation only
+    public void performAPKInstall(String filename){
+
+        File apkfile = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS) + "/app-release.apk");
+        if (!apkfile.exists()) {
+            return;
+        }
+        Intent installIntent = new Intent(Intent.ACTION_VIEW);
+        installIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        installIntent.setDataAndType(
+                Uri.parse("file://" + apkfile.toString()), "application/vnd.android.package-archive");
+        startActivity(installIntent);
+
+    } //End performAPKInstall
 
     @Override
     public void onResume() {
@@ -240,4 +308,214 @@ public class LoginActivity extends Activity implements OnClickListener {
         System.exit(0);
         super.onBackPressed();
     }
-}
+
+    /*
+    public void onItemSelected(AdapterView<?> parent, View view, int pos, long id) {
+
+        Log.e(CLASS_TAG, "Server URL selected is: " + (String) parent.getItemAtPosition(pos));
+
+
+    }   */
+
+
+     /*
+    @Override
+    protected void onStop() {
+        super.onStop();
+    } */
+
+    //@Arthur : Nested Class for downlading latest Updates of APK files
+    public class DownloadTask extends AsyncTask<String,Integer,String> {
+
+        private Context context;
+        private PowerManager.WakeLock mWakeLock;
+        private final String CLASS_TAG  = "DownloadTask";
+        public Date sdate,newdevicedate;
+        private boolean isFlagUpToDate = false;
+
+        public DownloadTask(Context context) {
+            this.context = context;
+        }
+
+
+
+        @Override
+        protected String doInBackground(String... sUrl) {
+
+            InputStream input = null;
+            OutputStream output = null;
+            HttpURLConnection connection = null;
+            try {
+                URL url = new URL(sUrl[0]);
+                connection = (HttpURLConnection) url.openConnection();
+                connection.connect();
+
+                // expect HTTP 200 OK, so we don't mistakenly save error report
+                // instead of the file
+                if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) {
+                    return "Server returned HTTP " + connection.getResponseCode()
+                            + " " + connection.getResponseMessage();
+                }
+
+                //Code to check the version release date for APK currently on the device and for the APK currently on server
+                long servertime = connection.getLastModified();
+                ApplicationInfo ai = getPackageManager().getApplicationInfo(getPackageName(), 0);
+                ZipFile zf = new ZipFile(ai.sourceDir);
+                ZipEntry ze = zf.getEntry("classes.dex");
+                long installed = ze.getTime();
+                //long installed = context.getPackageManager().getPackageInfo("org.hisp.dhis.android.trackercapture",0).firstInstallTime;
+                newdevicedate = new Date(installed);
+                sdate = new Date(servertime);
+                Log.v("SERVER_VERSION_DATE", "Last Version Build Date for APK on SERVER is: " + sdate);
+                Log.v("DEVICE_VER_DATE", "Version Build Date of APK currently installed on the device is : " + newdevicedate);
+                //Compare APK version dates
+                if( newdevicedate.after(sdate) || (newdevicedate.equals(sdate))) {
+                    Log.v("APK_UP_TO_DATE", "The APK on the Device is already up to date!!!!");
+                    //release memory on stack if there are issues - web resources - otherwise remove the next 3 lines
+                    input.close();
+                    output.close();
+                    connection.disconnect();
+                    isFlagUpToDate = true;
+                    Toast.makeText(context, "Device is already upto date!!!", Toast.LENGTH_SHORT).show();
+                    //force killing the asynctask thread
+                    this.cancel(true);
+                    //this.cancel(true);
+                    return null;
+                }
+                //zf.close();
+                // this will be useful to display download percentage
+                // might be -1: server did not report the length
+                int fileLength = connection.getContentLength();
+
+                // download the file
+                input = connection.getInputStream();
+                //Delete the APK file if present in the device from previous installation, delete before downloading
+                File apkfile = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS) + "/app-release.apk");
+                if (!apkfile.exists()) {
+
+                    apkfile.delete();
+                    Log.v("APK_DELETED", "APK  has been deleted from the device after installation");
+                }
+
+                if (Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED))
+                    output = new FileOutputStream((Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS) + "/app-release.apk"));
+                Log.v("FILE_ONDEVICE", "APK now on Android device");
+
+                byte data[] = new byte[4096];
+                long total = 0;
+                int count;
+                while ((count = input.read(data)) != -1 &&(this.isCancelled()==false)) {
+                    // allow canceling with back button
+                    if (isCancelled()||isFlagUpToDate==true) {
+                        input.close();
+
+                        // return null;
+                        break;
+                    }
+                    total += count;
+                    // publishing the progress....
+                    if (fileLength > 0) // only if total length is known
+                        publishProgress((int) (total * 100 / fileLength));
+                    output.write(data, 0, count);
+                }
+            }catch(Exception e){
+                return e.toString();
+            }finally{
+
+                try {
+                    if (output != null)
+                        output.close();
+                    if (input != null)
+                        input.close();
+
+                } catch (IOException ignored) {
+                    ignored.printStackTrace();
+                }
+
+                if (connection != null)
+                    connection.disconnect();
+            }
+            Log.v("DOWNLOAD_SUCCESSFULL", "APK has been successfully Downloaded onto device");
+            //install the APK on device after the download process
+            performAPKInstall("app-release.apk");
+            Log.v("INSTALL_SUCCESSFULL", "APK has been successfully installed onto device by the user");
+
+            return null;
+        }
+
+
+        //@Arthur: Overrides of AsyncTask Methods
+        @Override
+        protected void onPreExecute() {
+            super.onPreExecute();
+            // take CPU lock to prevent CPU from going off if the user
+            // presses the power button during download
+            //onPreExecute(), invoked on the UI thread before the task is executed.
+            PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+            mWakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, getClass().getName());
+            mWakeLock.acquire();
+            // mProgressDialog.show();
+
+            Log.e(CLASS_TAG, "POWER-ON button pressed to keep the device ON!");
+        }
+
+        @Override
+        protected void onProgressUpdate(Integer... progress) {
+
+            super.onProgressUpdate(progress);
+            mProgressDialog.show();
+            mProgressDialog.setIndeterminate(false);
+            mProgressDialog.setMessage("....Downloading NEW APP RELEASE.Please wait....");
+            mProgressDialog.setMax(100);
+            mProgressDialog.setProgress(progress[0]);
+            Log.v("APK_DOWNLOAD", "Latest APK is currently being downloaded from HISP server!");
+
+        }
+
+        @Override
+        protected void onPostExecute(String result) {
+            // invoked on the UI thread after the background computation finishes. The result of the background computation is passed to this step as a parameter.
+            mWakeLock.release();
+            mProgressDialog.dismiss();
+
+            if (result != null) {
+                //Toast.makeText(context, "Download error: " + result, Toast.LENGTH_LONG).show();
+                result=null;
+                Log.e("DOWNLOAD ERROR","Possible download error " + result);
+            } else if (result == null) {
+                Log.v("APK_UPDATED","The APK on device is already up to date");
+            } else {
+                Toast.makeText(context, "File download Complete!!!", Toast.LENGTH_SHORT).show();
+                Log.e(CLASS_TAG, "onPostExecute method invoked on the UI thread");
+
+                Toast.makeText(context, "App has been successfully upgraded!!!", Toast.LENGTH_SHORT).show();
+            }
+        }
+
+        @Override
+        protected void onCancelled() {
+            super.onCancelled();
+            mProgressDialog.dismiss();
+            isFlagUpToDate=true;
+            Toast toast = Toast.makeText(LoginActivity.this,
+                    "An Error has occured due to some unknown problem", Toast.LENGTH_LONG);
+            toast.setGravity(Gravity.TOP, 25, 400);
+            toast.show();
+        }
+            /*
+        @TargetApi(Build.VERSION_CODES.HONEYCOMB) // API 11
+        void startMyTask(AsyncTask downloadTask) {
+            if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB)
+                downloadTask.executeOnExecutor(Executors.newSingleThreadExecutor());
+            else
+                downloadTask.execute();
+        }
+            */
+
+    }//end DownloadTask class
+
+
+
+
+
+} //End LoginActivity class
