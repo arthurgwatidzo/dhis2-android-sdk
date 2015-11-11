@@ -135,6 +135,15 @@ public class LoginActivity extends Activity implements OnClickListener {
             }
         });
 
+            downloadTask.isFlagUpToDate();
+
+        Log.v("FLAG_UP_TO_DATE", "The flag's status is currently :" + downloadTask.isFlagUpToDate());
+        //if(downloadTask.isCancelled()||downloadTask.getStatus()== AsyncTask.Status.FINISHED){
+        if(downloadTask.isCancelled()||downloadTask.getStatus()== AsyncTask.Status.FINISHED){
+            Log.v("ASYNC_TASK_CANCELLED","The download task has been interrupted and aborted");
+            downloadTask.cancel(true);
+        }
+
     }
 
     @Override
@@ -331,13 +340,19 @@ public class LoginActivity extends Activity implements OnClickListener {
         private PowerManager.WakeLock mWakeLock;
         private final String CLASS_TAG  = "DownloadTask";
         public Date sdate,newdevicedate;
-        private boolean isFlagUpToDate = false;
+        private boolean flagUpToDate;
 
         public DownloadTask(Context context) {
             this.context = context;
         }
 
+        public boolean isFlagUpToDate() {
+            return flagUpToDate;
+        }
 
+        public void setFlagUpToDate(boolean flagUpToDate) {
+            this.flagUpToDate = flagUpToDate;
+        }
 
         @Override
         protected String doInBackground(String... sUrl) {
@@ -372,13 +387,17 @@ public class LoginActivity extends Activity implements OnClickListener {
                 if( newdevicedate.after(sdate) || (newdevicedate.equals(sdate))) {
                     Log.v("APK_UP_TO_DATE", "The APK on the Device is already up to date!!!!");
                     //release memory on stack if there are issues - web resources - otherwise remove the next 3 lines
+                    flagUpToDate = true;
+                   setFlagUpToDate(true);
+                    Log.v("FLAG_IN_DTASK", "The flag in the download class is: " + flagUpToDate);
+                    // Toast.makeText(context, "Device is already upto date!!!", Toast.LENGTH_SHORT).show();
+                    //force killing the asynctask thread
+                    this.cancel(true);
                     input.close();
                     output.close();
                     connection.disconnect();
-                    isFlagUpToDate = true;
-                    Toast.makeText(context, "Device is already upto date!!!", Toast.LENGTH_SHORT).show();
-                    //force killing the asynctask thread
-                    this.cancel(true);
+
+
                     //this.cancel(true);
                     return null;
                 }
@@ -406,7 +425,7 @@ public class LoginActivity extends Activity implements OnClickListener {
                 int count;
                 while ((count = input.read(data)) != -1 &&(this.isCancelled()==false)) {
                     // allow canceling with back button
-                    if (isCancelled()||isFlagUpToDate==true) {
+                    if (isCancelled()||flagUpToDate==true) {
                         input.close();
 
                         // return null;
@@ -496,10 +515,12 @@ public class LoginActivity extends Activity implements OnClickListener {
         protected void onCancelled() {
             super.onCancelled();
             mProgressDialog.dismiss();
-            isFlagUpToDate=true;
+            flagUpToDate=true;
+             //  An Error has occured due to some unknown problem
+            Log.v("ASYNC_TASK_CANCELLED","The download task has been interrupted and aborted inside background method");
             Toast toast = Toast.makeText(LoginActivity.this,
-                    "An Error has occured due to some unknown problem", Toast.LENGTH_LONG);
-            toast.setGravity(Gravity.TOP, 25, 400);
+                   "This application is currently up to date", Toast.LENGTH_LONG);
+            toast.setGravity(Gravity.TOP, 25, 180);
             toast.show();
         }
             /*
