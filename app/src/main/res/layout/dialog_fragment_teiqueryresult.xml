@@ -88,7 +88,7 @@
 
     <org.hisp.dhis.android.sdk.ui.views.FontEditText
         android:id="@+id/filter_options"
-        android:layout_width="match_parent"
+        android:layout_width="350dp"
         android:layout_height="48dp"
         android:layout_margin="16dp"
         android:drawableLeft="@drawable/ic_search"
@@ -102,6 +102,7 @@
         android:layout_height="match_parent"
         android:cacheColorHint="@color/transparent"
         android:divider="@color/darker_grey"
-        android:dividerHeight="1px"/>
+        android:dividerHeight="1px"
+        android:background="@color/Light_Gray" />
 
 </LinearLayout>
