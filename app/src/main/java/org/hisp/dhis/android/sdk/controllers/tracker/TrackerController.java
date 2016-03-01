@@ -343,6 +343,33 @@ public final class TrackerController extends ResourceController {
         return new Select().from(FailedItem.class).where(Condition.column(FailedItem$Table.ITEMTYPE).is(type), Condition.column(FailedItem$Table.ITEMID).is(id)).querySingle();
     }
 
+    public static boolean hasUnSynchronizedDataValues() {
+        boolean hasUnsynchronizedEnrollments = false;
+        boolean hasUnsynchronizedEvents = false;
+        boolean hasUnsynchronizedTEIs = false;
+        List<Enrollment> unSynchronizedEnrollments = new Select().from(Enrollment.class).where
+                (Condition.column(Enrollment$Table.FROMSERVER).is(false)).queryList();
+        List<Event> unSynchronizedEvents = new Select().from(Event.class).where
+                (Condition.column(Event$Table.FROMSERVER).is(false)).queryList();
+        List<TrackedEntityInstance> unsynchronizedTEIs = new Select().from(TrackedEntityInstance.class).where
+                (Condition.column(TrackedEntityInstance$Table.FROMSERVER).is(false)).queryList();
+
+        if(unSynchronizedEnrollments != null && unSynchronizedEnrollments.size() > 0) {
+            hasUnsynchronizedEnrollments = true;
+        }
+        if(unSynchronizedEvents != null && unSynchronizedEvents.size() > 0) {
+            hasUnsynchronizedEvents = true;
+        }
+        if(unsynchronizedTEIs != null && unsynchronizedTEIs.size() > 0) {
+            hasUnsynchronizedTEIs = true;
+        }
+
+        if(hasUnsynchronizedEnrollments || hasUnsynchronizedEvents || hasUnsynchronizedTEIs) {
+            return true;
+        }
+        else return false;
+    }
+
     /**
      * Clear flags for loaded data values, deleting the status info for when data values were
      * last updated
