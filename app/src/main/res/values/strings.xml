@@ -246,7 +246,7 @@
     <!-- String array for server instance url -->
     <string-array name="url_array">
         <item>\t\t\t[Select a Server URL]</item>
-        <item>http://ishp.dhis.dhmis.org/staging</item>
+        <item>http://lusanda.dhis.dhmis.org</item>
     </string-array>
 
 </resources>
