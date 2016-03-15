@@ -211,6 +211,7 @@ public class LoginActivity extends Activity implements OnClickListener {
         progressBar = (ProgressBar) findViewById(R.id.progress_bar);
         progressBar.setVisibility(View.GONE);
         loginButton.setOnClickListener(this);
+
     }
 
     @Override
