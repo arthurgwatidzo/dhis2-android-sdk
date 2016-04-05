@@ -83,6 +83,7 @@ import org.hisp.dhis.android.sdk.persistence.models.TrackedEntityAttribute;
 import org.hisp.dhis.android.sdk.persistence.models.TrackedEntityAttribute$Table;
 import org.hisp.dhis.android.sdk.persistence.models.TrackedEntityInstance;
 import org.hisp.dhis.android.sdk.persistence.models.User;
+import org.hisp.dhis.android.sdk.persistence.models.UserAccount;
 import org.hisp.dhis.android.sdk.persistence.models.meta.DbOperation;
 import org.hisp.dhis.android.sdk.persistence.preferences.DateTimeManager;
 import org.hisp.dhis.android.sdk.persistence.preferences.ResourceType;
@@ -90,14 +91,10 @@ import org.hisp.dhis.android.sdk.utils.DbUtils;
 import org.hisp.dhis.android.sdk.utils.UiUtils;
 import org.joda.time.DateTime;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import retrofit.client.Response;
-import retrofit.converter.ConversionException;
 
 import static org.hisp.dhis.android.sdk.utils.NetworkUtils.unwrapResponse;
 
@@ -484,13 +481,13 @@ public final class MetaDataController extends ResourceController {
     /**
      * Loads a metadata item that is scheduled to be loaded but has not yet been.
      */
-    private static void updateMetaDataItems(Context context, DhisApi dhisApi) throws APIException{
+    private static void updateMetaDataItems(Context context, DhisApi dhisApi) throws APIException {
         SystemInfo serverSystemInfo = dhisApi.getSystemInfo();
         DateTime serverDateTime = serverSystemInfo.getServerDate();
         //some items depend on each other. Programs depend on AssignedPrograms because we need
         //the ids of programs to load.
         if (LoadingController.isLoadFlagEnabled(context, ResourceType.ASSIGNEDPROGRAMS)) {
-            if ( shouldLoad(dhisApi, ResourceType.ASSIGNEDPROGRAMS) ) {
+            if ( shouldLoad(serverDateTime, ResourceType.ASSIGNEDPROGRAMS) ) {
                 getAssignedProgramsDataFromServer(dhisApi, serverDateTime);
             }
         }
@@ -498,44 +495,44 @@ public final class MetaDataController extends ResourceController {
             List<String> assignedPrograms = MetaDataController.getAssignedPrograms();
             if (assignedPrograms != null) {
                 for (String program : assignedPrograms) {
-                    if ( shouldLoad(dhisApi, ResourceType.PROGRAMS, program) ) {
+                    if ( shouldLoad(serverDateTime, ResourceType.PROGRAMS, program) ) {
                         getProgramDataFromServer(dhisApi, program, serverDateTime);
                     }
                 }
             }
         }
         if (LoadingController.isLoadFlagEnabled(context, ResourceType.OPTIONSETS)) {
-            if ( shouldLoad(dhisApi, ResourceType.OPTIONSETS) ) {
+            if ( shouldLoad(serverDateTime, ResourceType.OPTIONSETS) ) {
                 getOptionSetDataFromServer(dhisApi, serverDateTime);
             }
         }
         if (LoadingController.isLoadFlagEnabled(context, ResourceType.TRACKEDENTITYATTRIBUTES)) {
-            if ( shouldLoad(dhisApi, ResourceType.TRACKEDENTITYATTRIBUTES) ) {
+            if ( shouldLoad(serverDateTime, ResourceType.TRACKEDENTITYATTRIBUTES) ) {
                 getTrackedEntityAttributeDataFromServer(dhisApi, serverDateTime);
             }
         }
         if (LoadingController.isLoadFlagEnabled(context, ResourceType.CONSTANTS)) {
-            if ( shouldLoad(dhisApi, ResourceType.CONSTANTS) ) {
+            if ( shouldLoad(serverDateTime, ResourceType.CONSTANTS) ) {
                 getConstantsDataFromServer(dhisApi, serverDateTime);
             }
         }
         if (LoadingController.isLoadFlagEnabled(context, ResourceType.PROGRAMRULES)) {
-            if ( shouldLoad(dhisApi, ResourceType.PROGRAMRULES) ) {
+            if ( shouldLoad(serverDateTime, ResourceType.PROGRAMRULES) ) {
                 getProgramRulesDataFromServer(dhisApi, serverDateTime);
             }
         }
         if (LoadingController.isLoadFlagEnabled(context, ResourceType.PROGRAMRULEVARIABLES)) {
-            if ( shouldLoad(dhisApi, ResourceType.PROGRAMRULEVARIABLES) ) {
+            if ( shouldLoad(serverDateTime, ResourceType.PROGRAMRULEVARIABLES) ) {
                 getProgramRuleVariablesDataFromServer(dhisApi, serverDateTime);
             }
         }
         if (LoadingController.isLoadFlagEnabled(context, ResourceType.PROGRAMRULEACTIONS)) {
-            if ( shouldLoad(dhisApi, ResourceType.PROGRAMRULEACTIONS) ) {
+            if ( shouldLoad(serverDateTime, ResourceType.PROGRAMRULEACTIONS) ) {
                 getProgramRuleActionsDataFromServer(dhisApi, serverDateTime);
             }
         }
         if (LoadingController.isLoadFlagEnabled(context, ResourceType.RELATIONSHIPTYPES)) {
-            if ( shouldLoad(dhisApi, ResourceType.RELATIONSHIPTYPES) ) {
+            if ( shouldLoad(serverDateTime, ResourceType.RELATIONSHIPTYPES) ) {
                 getRelationshipTypesDataFromServer(dhisApi, serverDateTime);
             }
         }
@@ -545,19 +542,29 @@ public final class MetaDataController extends ResourceController {
         Log.d(CLASS_TAG, "getAssignedProgramsDataFromServer");
         DateTime lastUpdated = DateTimeManager.getInstance()
                 .getLastUpdated(ResourceType.ASSIGNEDPROGRAMS);
-        Response response = dhisApi.getAssignedPrograms(getBasicQueryMap(lastUpdated));
-
-        List<OrganisationUnit> organisationUnits;
-        try {
-            organisationUnits = new AssignedProgramsWrapper().deserialize(response);
-        } catch (ConversionException e) {
-            e.printStackTrace();
-            return; //todo: handle
-        } catch (IOException e) {
-            e.printStackTrace();
-            return; //todo: handle
+//        Response response = dhisApi.getAssignedPrograms(getBasicQueryMap(lastUpdated));
+        UserAccount userAccount = dhisApi.getUserAccount();
+        Map<String, Program> programMap = new HashMap<>();
+        List<Program> assignedPrograms = userAccount.getPrograms();
+        for(Program program : assignedPrograms) {
+            programMap.put(program.getUid(), program);
         }
-        List<DbOperation> operations = AssignedProgramsWrapper.getOperations(organisationUnits);
+
+        List<OrganisationUnit> assignedOrganisationUnits = userAccount.getOrganisationUnits();
+
+        for(OrganisationUnit organisationUnit : assignedOrganisationUnits) {
+            if(organisationUnit.getPrograms() != null && !organisationUnit.getPrograms().isEmpty()) {
+                List<Program> assignedProgramToUnit = organisationUnit.getPrograms();
+                for(Program program : organisationUnit.getPrograms()) {
+                    if(programMap.containsKey(program.getUid())) {
+                        assignedProgramToUnit.add(programMap.get(program.getUid()));
+                    }
+                }
+                organisationUnit.setPrograms(assignedProgramToUnit);
+            }
+        }
+
+        List<DbOperation> operations = AssignedProgramsWrapper.getOperations(assignedOrganisationUnits);
 
         DbUtils.applyBatch(operations);
         DateTimeManager.getInstance()

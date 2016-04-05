@@ -1,5 +1,6 @@
+package org.hisp.dhis.android.sdk.persistence.models;
 /*
- * Copyright (c) 2015, University of Oslo
+ * Copyright (c) 2016, University of Oslo
  *
  * All rights reserved.
  * Redistribution and use in source and binary forms, with or without
@@ -26,85 +27,23 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package org.hisp.dhis.android.sdk.persistence.models;
 
-import com.fasterxml.jackson.annotation.JsonAnySetter;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.raizlabs.android.dbflow.annotation.Column;
-import com.raizlabs.android.dbflow.annotation.PrimaryKey;
-import com.raizlabs.android.dbflow.annotation.Table;
-import com.raizlabs.android.dbflow.structure.BaseModel;
 
-import org.hisp.dhis.android.sdk.persistence.Dhis2Database;
-
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
-/**
- * @author Simen Skogly Russnes on 17.02.15.
- */
-@Table(databaseName = Dhis2Database.NAME)
-public class OrganisationUnit extends BaseModel {
-
-    @JsonProperty("id")
-    @Column(name = "id")
-    @PrimaryKey
-    String id;
-
-    @JsonProperty("displayName")
-    @Column(name = "displayName")
-    String label;
-
-    @JsonProperty("level")
-    @Column(name = "level")
-    int level;
-
-    @JsonProperty("parent")
-    @Column(name = "parent")
-    String parent;
+@JsonIgnoreProperties(ignoreUnknown = true)
+class UserRole {
 
     @JsonProperty("programs")
     List<Program> programs;
 
-    public OrganisationUnit() {
-    }
+//    @JsonProperty("dataSets")
+//    List<DataSet> dataSets;
 
-    @JsonAnySetter
-    public void handleUnknown(String key, Object value) {
-        // do something: put to a Map; log a warning, whatever
-    }
-
-    public String getParent() {
-        return parent;
-    }
-
-    public void setParent(String parent) {
-        this.parent = parent;
-    }
-
-    public String getId() {
-        return id;
-    }
-
-    public void setId(String id) {
-        this.id = id;
-    }
-
-    public String getLabel() {
-        return label;
-    }
-
-    public void setLabel(String label) {
-        this.label = label;
-    }
-
-    public int getLevel() {
-        return level;
-    }
-
-    public void setLevel(int level) {
-        this.level = level;
+    public UserRole() {
+        // explicit empty constructor
     }
 
     public List<Program> getPrograms() {
@@ -114,4 +53,12 @@ public class OrganisationUnit extends BaseModel {
     public void setPrograms(List<Program> programs) {
         this.programs = programs;
     }
+
+//    public List<DataSet> getDataSets() {
+//        return dataSets;
+//    }
+//
+//    public void setDataSets(List<DataSet> dataSets) {
+//        this.dataSets = dataSets;
+//    }
 }

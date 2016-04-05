@@ -1,5 +1,7 @@
+package org.hisp.dhis.android.sdk.persistence.models;
+
 /*
- * Copyright (c) 2015, University of Oslo
+ * Copyright (c) 2016, University of Oslo
  *
  * All rights reserved.
  * Redistribution and use in source and binary forms, with or without
@@ -26,48 +28,27 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package org.hisp.dhis.android.sdk.persistence;
 
-import android.app.Activity;
-import android.app.Application;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
-import com.facebook.stetho.Stetho;
-import com.raizlabs.android.dbflow.config.FlowManager;
-import com.squareup.otto.Bus;
-import com.squareup.otto.ThreadEnforcer;
+import java.util.List;
 
-import org.hisp.dhis.android.sdk.controllers.DhisController;
-import org.hisp.dhis.android.sdk.utils.MainThreadBus;
+@JsonIgnoreProperties(ignoreUnknown = true)
+class UserCredentials {
 
-/**
- *  Application for initiating the DbFlow Back end
- */
-public abstract class Dhis2Application extends Application {
+    @JsonProperty("userRoles")
+    List<UserRole> userRoles;
 
-    public static Bus bus;
-    public static DhisController dhisController;
-
-    static {
-        bus = new MainThreadBus(ThreadEnforcer.ANY);
+    public UserCredentials() {
+        // explicit empty constructor
     }
 
-    @Override
-    public void onCreate() {
-        super.onCreate();
-        FlowManager.init(this);
-        dhisController = new DhisController(this);
-        bus.register(dhisController);
-        Stetho.initializeWithDefaults(this);
+    public List<UserRole> getUserRoles() {
+        return userRoles;
     }
 
-    @Override
-    public void onTerminate() {
-        super.onTerminate();
-        FlowManager.destroy();
-    }
-    public abstract Class<? extends Activity> getMainActivity();
-
-    public static Bus getEventBus() {
-        return bus;
+    public void setUserRoles(List<UserRole> userRoles) {
+        this.userRoles = userRoles;
     }
 }

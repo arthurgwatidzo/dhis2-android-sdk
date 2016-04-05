@@ -40,6 +40,7 @@ import org.hisp.dhis.android.sdk.controllers.DhisController;
 import org.hisp.dhis.android.sdk.network.APIException;
 import org.hisp.dhis.android.sdk.network.DhisApi;
 import org.hisp.dhis.android.sdk.persistence.models.ApiResponse;
+import org.hisp.dhis.android.sdk.persistence.models.ApiResponse2;
 import org.hisp.dhis.android.sdk.persistence.models.DataValue;
 import org.hisp.dhis.android.sdk.persistence.models.DataValue$Table;
 import org.hisp.dhis.android.sdk.persistence.models.Enrollment;
@@ -48,6 +49,7 @@ import org.hisp.dhis.android.sdk.persistence.models.Event;
 import org.hisp.dhis.android.sdk.persistence.models.Event$Table;
 import org.hisp.dhis.android.sdk.persistence.models.FailedItem;
 import org.hisp.dhis.android.sdk.persistence.models.ImportSummary;
+import org.hisp.dhis.android.sdk.persistence.models.ImportSummary2;
 import org.hisp.dhis.android.sdk.persistence.models.Relationship;
 import org.hisp.dhis.android.sdk.persistence.models.Relationship$Table;
 import org.hisp.dhis.android.sdk.persistence.models.TrackedEntityAttributeValue;
@@ -59,6 +61,7 @@ import org.hisp.dhis.android.sdk.utils.Utils;
 import org.hisp.dhis.android.sdk.utils.NetworkUtils;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -79,9 +82,64 @@ final class TrackerDataSender {
     static void sendEventChanges(DhisApi dhisApi) throws APIException {
         List<Event> events = new Select().from(Event.class).where
                 (Condition.column(Event$Table.FROMSERVER).is(false)).queryList();
-        sendEventChanges(dhisApi, events);
+//        sendEventChanges(dhisApi, events);
+        sendEventBatch(dhisApi, events);
     }
 
+    static void sendEventBatch(DhisApi dhisApi, List<Event> events) throws APIException {
+        if (events == null || events.isEmpty()) {
+            return;
+        }
+
+        for (int i = 0; i < events.size(); i++) {/* removing events with local enrollment reference. In this case, the enrollment needs to be synced first*/
+            Event event = events.get(i);
+            if (Utils.isLocal(event.getEnrollment()) && event.getEnrollment() != null/*if enrollments==null, then it is probably a single event without reg*/) {
+                events.remove(i);
+                i--;
+                continue;
+            }
+        }
+        postEventBatch(dhisApi, events);
+    }
+
+    static void postEventBatch(DhisApi dhisApi, List<Event> events) throws APIException {
+        Map<String, Event> eventMap = new HashMap<>();
+        List<ImportSummary> importSummaries = null;
+        try {
+            Map<String, List<Event>> map = new HashMap<>();
+            map.put("events", events);
+            Response response = dhisApi.postEvents(map);
+            importSummaries = getImportSummaries(response);
+//            importSummaries = response.getImportSummaries();
+
+            for(Event event : events) {
+                eventMap.put(event.getUid(), event);
+            }
+
+            // check if all items were synced successfully
+            if(importSummaries != null) {
+                for (ImportSummary importSummary : importSummaries) {
+                    Event event = eventMap.get(importSummary.getReference());
+                    System.out.println("IMPORT SUMMARY: " + importSummary.getDescription());
+                    if (ImportSummary.SUCCESS.equals(importSummary.getStatus()) ||
+                            ImportSummary.OK.equals(importSummary.getStatus())) {
+                        event.setFromServer(true);
+                        event.save();
+                        clearFailedItem(FailedItem.EVENT, event.getLocalId());
+                        UpdateEventTimestamp(event, dhisApi);
+                    }
+                }
+            }
+
+        } catch (APIException apiException) {
+            if (importSummaries != null && !importSummaries.isEmpty()) {
+                for (ImportSummary importSummary : importSummaries) {
+                    Event event = eventMap.get(importSummary.getReference());
+                    NetworkUtils.handleEventSendException(apiException, event);
+                }
+            }
+        }
+    }
     static void sendEventChanges(DhisApi dhisApi, List<Event> events) throws APIException {
         if (events == null || events.isEmpty()) {
             return;
@@ -193,9 +251,62 @@ final class TrackerDataSender {
 
     static void sendEnrollmentChanges(DhisApi dhisApi, boolean sendEvents) throws APIException {
         List<Enrollment> enrollments = new Select().from(Enrollment.class).where(Condition.column(Enrollment$Table.FROMSERVER).is(false)).queryList();
-        sendEnrollmentChanges(dhisApi, enrollments, sendEvents);
+        sendEnrollmentBatch(dhisApi, enrollments);
     }
 
+    static void sendEnrollmentBatch(DhisApi dhisApi, List<Enrollment> enrollments) throws APIException {
+        if (enrollments == null || enrollments.isEmpty()) {
+            return;
+        }
+
+        for (int i = 0; i < enrollments.size(); i++) {/* workaround for not attempting to upload enrollments with local tei reference*/
+            Enrollment enrollment = enrollments.get(i);
+            if (Utils.isLocal(enrollment.getTrackedEntityInstance())) {
+                enrollments.remove(i);
+                i--;
+            }
+        }
+        postEnrollmentBatch(dhisApi, enrollments);
+    }
+
+    static void postEnrollmentBatch(DhisApi dhisApi, List<Enrollment> enrollments) {
+        Map<String, Enrollment> enrollmentMap = new HashMap<>();
+        List<ImportSummary> importSummaries = null;
+        try {
+            Map<String, List<Enrollment>> map = new HashMap<>();
+            map.put("enrollments", enrollments);
+            Response response = dhisApi.postEnrollments(map);
+            importSummaries = getImportSummaries(response);
+//            importSummaries = response.getImportSummaries();
+
+            for(Enrollment enrollment : enrollments) {
+                enrollmentMap.put(enrollment.getUid(), enrollment);
+            }
+
+            // check if all items were synced successfully
+            if(importSummaries != null) {
+                for (ImportSummary importSummary : importSummaries) {
+                    Enrollment enrollment = enrollmentMap.get(importSummary.getReference());
+                    System.out.println("IMPORT SUMMARY: " + importSummary.getDescription());
+                    if (ImportSummary.SUCCESS.equals(importSummary.getStatus()) ||
+                            ImportSummary.OK.equals(importSummary.getStatus())) {
+                        enrollment.setFromServer(true);
+                        enrollment.save();
+                        clearFailedItem(FailedItem.ENROLLMENT, enrollment.getLocalId());
+                        UpdateEnrollmentTimestamp(enrollment, dhisApi);
+                    }
+                }
+            }
+
+        } catch (APIException apiException) {
+            if (importSummaries != null && !importSummaries.isEmpty()) {
+                for (ImportSummary importSummary : importSummaries) {
+                    Enrollment enrollment = enrollmentMap.get(importSummary.getReference());
+                    NetworkUtils.handleEnrollmentSendException(apiException, enrollment);
+                }
+            }
+        }
+    }
     static void sendEnrollmentChanges(DhisApi dhisApi, List<Enrollment> enrollments, boolean sendEvents) throws APIException {
         if (enrollments == null || enrollments.isEmpty()) {
             return;
@@ -320,9 +431,55 @@ final class TrackerDataSender {
 
     static void sendTrackedEntityInstanceChanges(DhisApi dhisApi, boolean sendEnrollments) throws APIException {
         List<TrackedEntityInstance> trackedEntityInstances = new Select().from(TrackedEntityInstance.class).where(Condition.column(TrackedEntityInstance$Table.FROMSERVER).is(false)).queryList();
-        sendTrackedEntityInstanceChanges(dhisApi, trackedEntityInstances, sendEnrollments);
+//        sendTrackedEntityInstanceChanges(dhisApi, trackedEntityInstances, sendEnrollments);
+        sendTrackedEntityInstanceBatch(dhisApi, trackedEntityInstances);
     }
 
+    static void sendTrackedEntityInstanceBatch(DhisApi dhisApi, List<TrackedEntityInstance> trackedEntityInstances) throws APIException {
+        if (trackedEntityInstances == null || trackedEntityInstances.isEmpty()) {
+            return;
+        }
+
+        postTrackedEntityInstanceBatch(dhisApi, trackedEntityInstances);
+    }
+    static void postTrackedEntityInstanceBatch(DhisApi dhisApi, List<TrackedEntityInstance> trackedEntityInstances) throws APIException{
+        Map<String, TrackedEntityInstance> trackedEntityInstanceMap = new HashMap<>();
+        List<ImportSummary> importSummaries = null;
+        try {
+            Map<String, List<TrackedEntityInstance>> map = new HashMap<>();
+            map.put("trackedEntityInstances", trackedEntityInstances);
+            Response response = dhisApi.postTrackedEntityInstancces(map);
+            importSummaries = getImportSummaries(response);
+//            importSummaries = response.getImportSummaries();
+
+            for(TrackedEntityInstance trackedEntityInstance : trackedEntityInstances) {
+                trackedEntityInstanceMap.put(trackedEntityInstance.getUid(), trackedEntityInstance);
+            }
+
+            // check if all items were synced successfully
+            if(importSummaries != null) {
+                for (ImportSummary importSummary : importSummaries) {
+                    TrackedEntityInstance trackedEntityInstance = trackedEntityInstanceMap.get(importSummary.getReference());
+                    System.out.println("IMPORT SUMMARY: " + importSummary.getDescription());
+                    if (ImportSummary.SUCCESS.equals(importSummary.getStatus()) ||
+                            ImportSummary.OK.equals(importSummary.getStatus())) {
+                        trackedEntityInstance.setFromServer(true);
+                        trackedEntityInstance.save();
+                        clearFailedItem(FailedItem.TRACKEDENTITYINSTANCE, trackedEntityInstance.getLocalId());
+                        UpdateTrackedEntityInstanceTimestamp(trackedEntityInstance, dhisApi);
+                    }
+                }
+            }
+
+        } catch (APIException apiException) {
+            if (importSummaries != null && !importSummaries.isEmpty()) {
+                for (ImportSummary importSummary : importSummaries) {
+                    TrackedEntityInstance trackedEntityInstance = trackedEntityInstanceMap.get(importSummary.getReference());
+                    NetworkUtils.handleTrackedEntityInstanceSendException(apiException, trackedEntityInstance);
+                }
+            }
+        }
+    }
     static void sendTrackedEntityInstanceChanges(DhisApi dhisApi, List<TrackedEntityInstance> trackedEntityInstances, boolean sendEnrollments) throws APIException {
         if (trackedEntityInstances == null || trackedEntityInstances.isEmpty()) {
             return;
@@ -486,7 +643,34 @@ final class TrackerDataSender {
             NetworkUtils.handleImportSummaryError(importSummary, type, 200, id);
         }
     }
+    private static List<ImportSummary> getImportSummaries(Response response) {
+        List<ImportSummary> importSummaries = new ArrayList<>();
 
+        try {
+            JsonNode node = DhisController.getInstance().getObjectMapper()
+                            .readTree(new StringConverter()
+                                    .fromBody(response.getBody(), String.class));
+            if(node == null) {
+                return null;
+            }
+            ApiResponse apiResponse = null;
+            String body = new StringConverter().fromBody(response.getBody(), String.class);
+            Log.d(CLASS_TAG, body);
+            apiResponse = DhisController.getInstance().getObjectMapper().
+                    readValue(body, ApiResponse.class);
+            if(apiResponse !=null && apiResponse.getImportSummaries()!=null && !apiResponse.getImportSummaries().isEmpty()) {
+                return(apiResponse.getImportSummaries());
+            }
+
+        }catch (ConversionException e) {
+            e.printStackTrace();
+        }
+        catch (IOException ioe) {
+            ioe.printStackTrace();
+        }
+
+        return importSummaries;
+    }
     private static ImportSummary getImportSummary(Response response) {
         //because the web api almost randomly gives the responses in different forms, this
         //method checks which one it is that is being returned, and parses accordingly.

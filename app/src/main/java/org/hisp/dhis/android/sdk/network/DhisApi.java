@@ -31,6 +31,7 @@ package org.hisp.dhis.android.sdk.network;
 import com.fasterxml.jackson.databind.JsonNode;
 
 import org.hisp.dhis.android.sdk.controllers.ApiEndpointContainer;
+import org.hisp.dhis.android.sdk.persistence.models.ApiResponse2;
 import org.hisp.dhis.android.sdk.persistence.models.Constant;
 import org.hisp.dhis.android.sdk.persistence.models.Dashboard;
 import org.hisp.dhis.android.sdk.persistence.models.DashboardItem;
@@ -208,6 +209,9 @@ public interface DhisApi {
     @GET("/me/programs/")
     Response getAssignedPrograms(@QueryMap Map<String, String> queryMap);
 
+    @GET("/me?fields=organisationUnits[id,displayName,programs[id]],userCredentials[userRoles[programs[id]]]")
+    UserAccount getUserAccount();
+
     @GET("/" + ApiEndpointContainer.PROGRAMS + "/{programUid}")
     Program getProgram(@Path("programUid") String programUid, @QueryMap Map<String, String> queryMap);
 
@@ -255,6 +259,9 @@ public interface DhisApi {
     @POST("/"+ApiEndpointContainer.EVENTS+"/")
     Response postEvent(@Body Event event);
 
+    @POST("/"+ApiEndpointContainer.EVENTS+"/")
+    Response postEvents(@Body Map<String, List<Event>> events);
+
     @PUT("/"+ApiEndpointContainer.EVENTS+"/{eventUid}")
     Response putEvent(@Path("eventUid") String eventUid, @Body Event event);
 
@@ -267,6 +274,9 @@ public interface DhisApi {
     @POST("/"+ApiEndpointContainer.ENROLLMENTS+"/")
     Response postEnrollment(@Body Enrollment enrollment);
 
+    @POST("/"+ApiEndpointContainer.ENROLLMENTS+"/")
+    Response postEnrollments(@Body Map<String, List<Enrollment>> enrollments);
+
     @PUT("/"+ApiEndpointContainer.ENROLLMENTS+"/{enrollmentUid}")
     Response putEnrollment(@Path("enrollmentUid") String enrollmentUid, @Body Enrollment enrollment);
 
@@ -278,6 +288,9 @@ public interface DhisApi {
 
     @POST("/"+ApiEndpointContainer.TRACKED_ENTITY_INSTANCES+"/")
     Response postTrackedEntityInstance(@Body TrackedEntityInstance trackedEntityInstance);
+
+    @POST("/"+ApiEndpointContainer.TRACKED_ENTITY_INSTANCES+"/")
+    Response postTrackedEntityInstancces(@Body Map<String, List<TrackedEntityInstance>> trackedEntityInstances);
 
     @PUT("/"+ApiEndpointContainer.TRACKED_ENTITY_INSTANCES+"/{trackedEntityInstanceUid}")
     Response putTrackedEntityInstance(@Path("trackedEntityInstanceUid") String trackedEntityInstanceUid, @Body TrackedEntityInstance trackedEntityInstance);
