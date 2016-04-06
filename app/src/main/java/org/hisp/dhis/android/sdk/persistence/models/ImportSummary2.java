@@ -1,5 +1,6 @@
 package org.hisp.dhis.android.sdk.persistence.models;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
@@ -7,6 +8,7 @@ import java.util.List;
 /**
  * Created by erling on 04.04.16.
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class ImportSummary2 {
 
     @JsonProperty("status")
@@ -26,6 +28,7 @@ public class ImportSummary2 {
 
     @JsonProperty("conflicts")
     private List<Conflict2> conflicts;
+
 
     public ImportSummary2() {
         // explicit empty constructor

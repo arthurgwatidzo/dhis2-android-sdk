@@ -275,7 +275,7 @@ public interface DhisApi {
     Response postEnrollment(@Body Enrollment enrollment);
 
     @POST("/"+ApiEndpointContainer.ENROLLMENTS+"/")
-    Response postEnrollments(@Body Map<String, List<Enrollment>> enrollments);
+    ApiResponse2 postEnrollments(@Body Map<String, List<Enrollment>> enrollments);
 
     @PUT("/"+ApiEndpointContainer.ENROLLMENTS+"/{enrollmentUid}")
     Response putEnrollment(@Path("enrollmentUid") String enrollmentUid, @Body Enrollment enrollment);
@@ -290,7 +290,7 @@ public interface DhisApi {
     Response postTrackedEntityInstance(@Body TrackedEntityInstance trackedEntityInstance);
 
     @POST("/"+ApiEndpointContainer.TRACKED_ENTITY_INSTANCES+"/")
-    Response postTrackedEntityInstancces(@Body Map<String, List<TrackedEntityInstance>> trackedEntityInstances);
+    ApiResponse2 postTrackedEntityInstancces(@Body Map<String, List<TrackedEntityInstance>> trackedEntityInstances);
 
     @PUT("/"+ApiEndpointContainer.TRACKED_ENTITY_INSTANCES+"/{trackedEntityInstanceUid}")
     Response putTrackedEntityInstance(@Path("trackedEntityInstanceUid") String trackedEntityInstanceUid, @Body TrackedEntityInstance trackedEntityInstance);

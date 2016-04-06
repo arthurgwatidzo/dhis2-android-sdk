@@ -1,11 +1,13 @@
 package org.hisp.dhis.android.sdk.persistence.models;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
  * Created by erling on 04.04.16.
  */
-public class ImportCount2 {
+@JsonIgnoreProperties(ignoreUnknown = true)
+   public class ImportCount2 {
 
     @JsonProperty("imported")
     private int imported;

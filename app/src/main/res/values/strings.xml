@@ -248,6 +248,7 @@
         <item>\t\t\t[Select a Server URL]</item>
         <item>http://ishp.dhis.dhmis.org</item>
         <item>http://ishp.dhis.dhmis.org/staging</item>
+        <item>http://loadbal.dhis.hisp.org</item>
     </string-array>
 
 </resources>
