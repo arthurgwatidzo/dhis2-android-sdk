@@ -31,6 +31,7 @@ package org.hisp.dhis.android.sdk.network;
 import com.fasterxml.jackson.databind.JsonNode;
 
 import org.hisp.dhis.android.sdk.controllers.ApiEndpointContainer;
+import org.hisp.dhis.android.sdk.persistence.models.ApiResponse;
 import org.hisp.dhis.android.sdk.persistence.models.ApiResponse2;
 import org.hisp.dhis.android.sdk.persistence.models.Constant;
 import org.hisp.dhis.android.sdk.persistence.models.Dashboard;
@@ -260,7 +261,7 @@ public interface DhisApi {
     Response postEvent(@Body Event event);
 
     @POST("/"+ApiEndpointContainer.EVENTS+"/")
-    Response postEvents(@Body Map<String, List<Event>> events);
+    ApiResponse postEvents(@Body Map<String, List<Event>> events);
 
     @PUT("/"+ApiEndpointContainer.EVENTS+"/{eventUid}")
     Response putEvent(@Path("eventUid") String eventUid, @Body Event event);

@@ -41,4 +41,20 @@ public class ApiResponse2 {
     public List<ImportSummary2> getImportSummaries() {
         return importSummaries;
     }
+
+    public void setResponseType(String responseType) {
+        this.responseType = responseType;
+    }
+
+    public void setStatus(ImportSummary2.Status status) {
+        this.status = status;
+    }
+
+    public void setImportCount(ImportCount2 importCount) {
+        this.importCount = importCount;
+    }
+
+    public void setImportSummaries(List<ImportSummary2> importSummaries) {
+        this.importSummaries = importSummaries;
+    }
 }

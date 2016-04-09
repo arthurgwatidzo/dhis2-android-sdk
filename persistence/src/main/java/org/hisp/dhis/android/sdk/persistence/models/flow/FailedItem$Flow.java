@@ -75,6 +75,9 @@ public final class FailedItem$Flow extends BaseModel {
     @Column
     String errorMessage;
 
+    @Column
+    int failCount;
+
     public long getId() {
         return id;
     }
@@ -123,6 +126,14 @@ public final class FailedItem$Flow extends BaseModel {
         this.errorMessage = errorMessage;
     }
 
+    public int getFailCount() {
+        return failCount;
+    }
+
+    public void setFailCount(int failCount) {
+        this.failCount = failCount;
+    }
+
     public FailedItem$Flow() {
         // empty constructor
     }
@@ -139,6 +150,7 @@ public final class FailedItem$Flow extends BaseModel {
         failedItem.setImportSummary(ImportSummary$Flow.toModel(failedItemFlow.getImportSummary()));
         failedItem.setItemId(failedItemFlow.getItemId());
         failedItem.setItemFailedItemType(failedItemFlow.getItemType());
+        failedItem.setFailCount(failedItemFlow.getFailCount());
         return failedItem;
     }
 
@@ -154,6 +166,7 @@ public final class FailedItem$Flow extends BaseModel {
         failedItemFlow.setImportSummary(ImportSummary$Flow.fromModel(failedItem.getImportSummary()));
         failedItemFlow.setItemId(failedItem.getItemId());
         failedItemFlow.setItemType(failedItem.getItemFailedItemType());
+        failedItemFlow.setFailCount(failedItem.getFailCount());
         return failedItemFlow;
     }
 

@@ -589,7 +589,7 @@ public final class MetaDataController extends ResourceController {
                 "programStageSections[*,programStageDataElements[*,programStage[id]," +
                 "dataElement[*,optionSet[id]]],programIndicators[*]],programStageDataElements" +
                 "[*,programStage[id],dataElement[*,optionSet[id]]]],programTrackedEntityAttributes" +
-                "[*,trackedEntityAttribute[*]],!organisationUnits)");
+                "[*,trackedEntityAttribute[*]],!organisationUnits");
 
         if (lastUpdated != null) {
             QUERY_MAP_FULL.put("filter", "lastUpdated:gt:" + lastUpdated.toString());

@@ -30,9 +30,11 @@ package org.hisp.dhis.android.sdk.controllers.tracker;
 
 import android.net.Uri;
 import android.util.Log;
+import android.util.TypedValue;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.raizlabs.android.dbflow.sql.builder.Condition;
+import com.raizlabs.android.dbflow.sql.language.Join;
 import com.raizlabs.android.dbflow.sql.language.Select;
 import com.raizlabs.android.dbflow.sql.language.Update;
 
@@ -48,6 +50,7 @@ import org.hisp.dhis.android.sdk.persistence.models.Enrollment$Table;
 import org.hisp.dhis.android.sdk.persistence.models.Event;
 import org.hisp.dhis.android.sdk.persistence.models.Event$Table;
 import org.hisp.dhis.android.sdk.persistence.models.FailedItem;
+import org.hisp.dhis.android.sdk.persistence.models.FailedItem$Table;
 import org.hisp.dhis.android.sdk.persistence.models.ImportSummary;
 import org.hisp.dhis.android.sdk.persistence.models.ImportSummary2;
 import org.hisp.dhis.android.sdk.persistence.models.Relationship;
@@ -60,7 +63,9 @@ import org.hisp.dhis.android.sdk.utils.StringConverter;
 import org.hisp.dhis.android.sdk.utils.Utils;
 import org.hisp.dhis.android.sdk.utils.NetworkUtils;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -69,6 +74,7 @@ import java.util.Map;
 import retrofit.client.Header;
 import retrofit.client.Response;
 import retrofit.converter.ConversionException;
+import retrofit.mime.TypedInput;
 
 /**
  * @author Simen Skogly Russnes on 24.08.15.
@@ -82,8 +88,28 @@ final class TrackerDataSender {
     static void sendEventChanges(DhisApi dhisApi) throws APIException {
         List<Event> events = new Select().from(Event.class).where
                 (Condition.column(Event$Table.FROMSERVER).is(false)).queryList();
+
+        List<Event> eventsWithFailedThreshold = new Select().from(Event.class)
+                .join(FailedItem.class, Join.JoinType.LEFT)
+                .on(Condition.column(FailedItem$Table.ITEMID).eq(Event$Table.LOCALID))
+                .where(Condition.column(FailedItem$Table.ITEMTYPE).eq(FailedItem.EVENT))
+                .and(Condition.column(FailedItem$Table.FAILCOUNT).greaterThan(3))
+                .and(Condition.column(Event$Table.FROMSERVER).is(false))
+                .queryList();
+
+        List<Event> eventsToPost = new ArrayList<>();
+        eventsToPost.addAll(events);
+        for(Event event : events) {
+            for(Event failedEvent : eventsWithFailedThreshold) {
+                if(event.getUid().equals(failedEvent.getUid())) {
+                    eventsToPost.remove(event);
+                }
+            }
+
+            System.out.println("EVENT LOCALID: " + event.getLocalId());
+        }
 //        sendEventChanges(dhisApi, events);
-        sendEventBatch(dhisApi, events);
+        sendEventBatch(dhisApi, eventsToPost);
     }
 
     static void sendEventBatch(DhisApi dhisApi, List<Event> events) throws APIException {
@@ -105,12 +131,14 @@ final class TrackerDataSender {
     static void postEventBatch(DhisApi dhisApi, List<Event> events) throws APIException {
         Map<String, Event> eventMap = new HashMap<>();
         List<ImportSummary> importSummaries = null;
+
+        ApiResponse apiResponse = null;
         try {
             Map<String, List<Event>> map = new HashMap<>();
             map.put("events", events);
-            Response response = dhisApi.postEvents(map);
-            importSummaries = getImportSummaries(response);
-//            importSummaries = response.getImportSummaries();
+            apiResponse = dhisApi.postEvents(map);
+
+            importSummaries = apiResponse.getImportSummaries();
 
             for(Event event : events) {
                 eventMap.put(event.getUid(), event);
@@ -132,11 +160,8 @@ final class TrackerDataSender {
             }
 
         } catch (APIException apiException) {
-            if (importSummaries != null && !importSummaries.isEmpty()) {
-                for (ImportSummary importSummary : importSummaries) {
-                    Event event = eventMap.get(importSummary.getReference());
-                    NetworkUtils.handleEventSendException(apiException, event);
-                }
+            if(apiException.getResponse().getStatus() == 409) { //if conflict try to re-send
+                sendEventChanges(dhisApi, events); // sending one-by-one to see which one failed
             }
         }
     }
@@ -254,6 +279,8 @@ final class TrackerDataSender {
         if (enrollments == null || enrollments.isEmpty()) {
             return;
         }
+
+
 //        else if(enrollments.size() == 1) {
         sendEnrollmentChanges(dhisApi, enrollments, sendEvents);
 //        }
@@ -444,6 +471,7 @@ final class TrackerDataSender {
         if (trackedEntityInstances == null || trackedEntityInstances.isEmpty()) {
             return;
         }
+
 
         sendTrackedEntityInstanceChanges(dhisApi, trackedEntityInstances, sendEnrollments);
 
@@ -666,6 +694,30 @@ final class TrackerDataSender {
             NetworkUtils.handleImportSummaryError(importSummary, type, 200, id);
         }
     }
+    private static List<ImportSummary> getImportSummaries(TypedInput body) {
+        List<ImportSummary> importSummaries = new ArrayList<>();
+
+        try {
+            BufferedReader reader = new BufferedReader(new InputStreamReader(body.in()));
+            StringBuilder out = new StringBuilder();
+            String newLine = System.getProperty("line.separator");
+            String line;
+            while ((line = reader.readLine()) != null) {
+                out.append(line);
+                out.append(newLine);
+            }
+
+            // Prints the correct String representation of body.
+            System.out.println(out);
+        }
+        catch (IOException ioe) {
+            ioe.printStackTrace();
+        }
+
+
+        return importSummaries;
+    }
+
     private static List<ImportSummary> getImportSummaries(Response response) {
         List<ImportSummary> importSummaries = new ArrayList<>();
 

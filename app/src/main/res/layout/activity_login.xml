@@ -26,16 +26,17 @@
   ~ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   -->
 
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<android.support.design.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:gravity="center"
-    android:paddingBottom="@dimen/activity_vertical_margin"
+    android:paddingBottom="20dp"
     android:paddingLeft="@dimen/activity_horizontal_margin"
     android:paddingRight="@dimen/activity_horizontal_margin"
-    android:paddingTop="@dimen/activity_vertical_margin"
+    android:paddingTop="100dp"
+    android:id="@+id/coordinatorLayout"
     tools:context="org.hisp.dhis.android.sdk.ui.activities.AbsLoginActivity">
 
     <include layout="@layout/progress_bar_light" />
@@ -113,4 +114,4 @@
 
     </LinearLayout>
 
-</RelativeLayout>
+</android.support.design.widget.CoordinatorLayout>

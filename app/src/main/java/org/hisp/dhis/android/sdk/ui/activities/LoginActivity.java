@@ -33,6 +33,8 @@ import android.app.Dialog;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
+import android.support.design.widget.CoordinatorLayout;
+import android.support.design.widget.Snackbar;
 import android.util.Log;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -93,6 +95,7 @@ public class LoginActivity extends Activity implements OnClickListener {
      */
     private final static String CLASS_TAG = "LoginActivity";
 
+    private CoordinatorLayout coordinatorLayout;
     private EditText usernameEditText;
     private EditText passwordEditText;
     private Spinner serverSpinner;
@@ -183,6 +186,7 @@ public class LoginActivity extends Activity implements OnClickListener {
         passwordEditText = (EditText) findViewById(R.id.password);
         serverSpinner = (Spinner) findViewById(R.id.server_url);
         loginButton = (Button) findViewById(R.id.login_button);
+        coordinatorLayout = (CoordinatorLayout) findViewById(R.id.coordinatorLayout);
 
         String server = null;//mPrefs.getServerUrl();
         String username = null;//mPrefs.getUsername();
@@ -521,10 +525,12 @@ public class LoginActivity extends Activity implements OnClickListener {
             } else if (result == null) {
                 Log.v("APK_UPDATED","The APK on device is already up to date");
             } else {
-                Toast.makeText(context, "File download Complete!!!", Toast.LENGTH_SHORT).show();
+                Snackbar.make(coordinatorLayout, "File download Complete!!!", Snackbar.LENGTH_LONG).show();
+//                Toast.makeText(context, "File download Complete!!!", Toast.LENGTH_SHORT).show();
                 Log.e(CLASS_TAG, "onPostExecute method invoked on the UI thread");
 
-                Toast.makeText(context, "App has been successfully upgraded!!!", Toast.LENGTH_SHORT).show();
+                Snackbar.make(coordinatorLayout, "App has been successfully upgraded!!!", Snackbar.LENGTH_INDEFINITE).show();
+//                Toast.makeText(context, "App has been successfully upgraded!!!", Toast.LENGTH_SHORT).show();
             }
         }
 
@@ -535,10 +541,12 @@ public class LoginActivity extends Activity implements OnClickListener {
             flagUpToDate=true;
              //  An Error has occured due to some unknown problem
             Log.v("ASYNC_TASK_CANCELLED","The download task has been interrupted and aborted inside background method");
-            Toast toast = Toast.makeText(LoginActivity.this,
-                   "This application is currently up to date", Toast.LENGTH_LONG);
-            toast.setGravity(Gravity.TOP, 25, 180);
-            toast.show();
+//            Toast toast = Toast.makeText(LoginActivity.this,
+//                   "This application is currently up to date", Toast.LENGTH_LONG);
+
+            Snackbar.make(coordinatorLayout, "This application is currently up to date", Snackbar.LENGTH_INDEFINITE).show();
+//            toast.setGravity(Gravity.TOP, 25, 180);
+//            toast.show();
         }
             /*
         @TargetApi(Build.VERSION_CODES.HONEYCOMB) // API 11
