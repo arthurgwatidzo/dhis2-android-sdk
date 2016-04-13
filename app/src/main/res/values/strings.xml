@@ -154,6 +154,7 @@
         <item>1 Hour</item>
         <item>1 Day</item>
         <item>Disabled</item>
+        <item>4 Hours</item>
     </string-array>
     
     <string-array name="copy_store_error_message">

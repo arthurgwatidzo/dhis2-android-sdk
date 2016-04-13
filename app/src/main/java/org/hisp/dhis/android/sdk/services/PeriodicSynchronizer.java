@@ -50,7 +50,8 @@ public class PeriodicSynchronizer extends BroadcastReceiver {
     public static final int FREQUENCY_ONE_HOUR = 2;
     public static final int FREQUENCY_ONE_DAY = 3;
     public static final int FREQUENCY_DISABLED = 4;
-    public static final int DEFAULT_UPDATE_FREQUENCY = FREQUENCY_DISABLED;
+    public static final int FREQUENCY_FOUR_HOURS = 5;
+    public static final int DEFAULT_UPDATE_FREQUENCY = FREQUENCY_FOUR_HOURS;
 
     public static final String CLASS_TAG = "PeriodicSynchronizer";
 
@@ -131,6 +132,9 @@ public class PeriodicSynchronizer extends BroadcastReceiver {
             case FREQUENCY_DISABLED: //disabled
                 minutes = 0;
                 break;
+            case FREQUENCY_FOUR_HOURS: //4 hours
+                minutes = 1 * 60 * 4;
+                break;
             default:
                 minutes = DEFAULT_UPDATE_FREQUENCY;
         }
@@ -160,6 +164,9 @@ public class PeriodicSynchronizer extends BroadcastReceiver {
                 break;
             case FREQUENCY_DISABLED: //disabled
                 minutes = 0;
+                break;
+            case FREQUENCY_FOUR_HOURS: //4 hours
+                minutes = 1 * 60 * 4;
                 break;
             default:
                 minutes = DEFAULT_UPDATE_FREQUENCY;
