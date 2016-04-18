@@ -55,6 +55,7 @@ import org.hisp.dhis.android.sdk.persistence.models.ImportSummary;
 import org.hisp.dhis.android.sdk.persistence.models.ImportSummary2;
 import org.hisp.dhis.android.sdk.persistence.models.Relationship;
 import org.hisp.dhis.android.sdk.persistence.models.Relationship$Table;
+import org.hisp.dhis.android.sdk.persistence.models.SystemInfo;
 import org.hisp.dhis.android.sdk.persistence.models.TrackedEntityAttributeValue;
 import org.hisp.dhis.android.sdk.persistence.models.TrackedEntityAttributeValue$Table;
 import org.hisp.dhis.android.sdk.persistence.models.TrackedEntityInstance;
@@ -62,6 +63,7 @@ import org.hisp.dhis.android.sdk.persistence.models.TrackedEntityInstance$Table;
 import org.hisp.dhis.android.sdk.utils.StringConverter;
 import org.hisp.dhis.android.sdk.utils.Utils;
 import org.hisp.dhis.android.sdk.utils.NetworkUtils;
+import org.joda.time.DateTime;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -131,7 +133,6 @@ final class TrackerDataSender {
     static void postEventBatch(DhisApi dhisApi, List<Event> events) throws APIException {
         Map<String, Event> eventMap = new HashMap<>();
         List<ImportSummary> importSummaries = null;
-
         ApiResponse apiResponse = null;
         try {
             Map<String, List<Event>> map = new HashMap<>();
@@ -146,15 +147,19 @@ final class TrackerDataSender {
 
             // check if all items were synced successfully
             if(importSummaries != null) {
+                SystemInfo systemInfo = dhisApi.getSystemInfo();
+                DateTime eventUploadTime = systemInfo.getServerDate();
                 for (ImportSummary importSummary : importSummaries) {
                     Event event = eventMap.get(importSummary.getReference());
                     System.out.println("IMPORT SUMMARY: " + importSummary.getDescription());
                     if (ImportSummary.SUCCESS.equals(importSummary.getStatus()) ||
                             ImportSummary.OK.equals(importSummary.getStatus())) {
                         event.setFromServer(true);
+                        event.setCreated(eventUploadTime.toString());
+                        event.setLastUpdated(eventUploadTime.toString());
                         event.save();
                         clearFailedItem(FailedItem.EVENT, event.getLocalId());
-                        UpdateEventTimestamp(event, dhisApi);
+//                        UpdateEventTimestamp(event, dhisApi);
                     }
                 }
             }
@@ -285,7 +290,7 @@ final class TrackerDataSender {
         sendEnrollmentChanges(dhisApi, enrollments, sendEvents);
 //        }
 //        else {
-//        sendEnrollmentBatch(dhisApi, enrollments);
+//            sendEnrollmentBatch(dhisApi, enrollments);
 //        }
 
     }
@@ -321,25 +326,26 @@ final class TrackerDataSender {
 
             // check if all items were synced successfully
             if(importSummaries != null) {
+                SystemInfo systemInfo = dhisApi.getSystemInfo();
+                DateTime uploadedEnrollmentTimestamp = systemInfo.getServerDate();
                 for (ImportSummary2 importSummary : importSummaries) {
                     Enrollment enrollment = enrollmentMap.get(importSummary.getReference());
                     System.out.println("IMPORT SUMMARY: " + importSummary.getDescription());
                     if (ImportSummary2.Status.SUCCESS.equals(importSummary.getStatus()) ||
                             ImportSummary2.Status.OK.equals(importSummary.getStatus())) {
                         enrollment.setFromServer(true);
+                        enrollment.setCreated(uploadedEnrollmentTimestamp.toString());
+                        enrollment.setLastUpdated(uploadedEnrollmentTimestamp.toString());
                         enrollment.save();
                         clearFailedItem(FailedItem.ENROLLMENT, enrollment.getLocalId());
-                        UpdateEnrollmentTimestamp(enrollment, dhisApi);
+//                        UpdateEnrollmentTimestamp(enrollment, dhisApi);
                     }
                 }
             }
 
         } catch (APIException apiException) {
-            if (importSummaries != null && !importSummaries.isEmpty()) {
-                for (ImportSummary2 importSummary : importSummaries) {
-                    Enrollment enrollment = enrollmentMap.get(importSummary.getReference());
-                    NetworkUtils.handleEnrollmentSendException(apiException, enrollment);
-                }
+            if(apiException.getResponse().getStatus() > 201) { //if conflict try to re-send
+                sendEnrollmentChanges(dhisApi, enrollments, false); // sending one-by-one to see which one failed
             }
         }
     }
@@ -472,9 +478,9 @@ final class TrackerDataSender {
             return;
         }
 
-
-        sendTrackedEntityInstanceChanges(dhisApi, trackedEntityInstances, sendEnrollments);
-
+//        if(trackedEntityInstances.size() == 1) {
+            sendTrackedEntityInstanceChanges(dhisApi, trackedEntityInstances, sendEnrollments);
+//        }
 //        else {
 //            sendTrackedEntityInstanceBatch(dhisApi, trackedEntityInstances);
 //        }
@@ -505,29 +511,26 @@ final class TrackerDataSender {
 
             // check if all items were synced successfully
             if(importSummaries != null) {
+                SystemInfo systemInfo = dhisApi.getSystemInfo();
+                DateTime uploadTeiServertime = systemInfo.getServerDate();
                 for (ImportSummary2 importSummary : importSummaries) {
                     TrackedEntityInstance trackedEntityInstance = trackedEntityInstanceMap.get(importSummary.getReference());
                     System.out.println("IMPORT SUMMARY: " + importSummary.getDescription());
                     if (ImportSummary2.Status.SUCCESS.equals(importSummary.getStatus()) ||
                             ImportSummary2.Status.OK.equals(importSummary.getStatus())) {
                         trackedEntityInstance.setFromServer(true);
+                        trackedEntityInstance.setLastUpdated(uploadTeiServertime.toString());
+                        trackedEntityInstance.setCreated(uploadTeiServertime.toString());
                         trackedEntityInstance.save();
                         clearFailedItem(FailedItem.TRACKEDENTITYINSTANCE, trackedEntityInstance.getLocalId());
-                        UpdateTrackedEntityInstanceTimestamp(trackedEntityInstance, dhisApi);
+//                        UpdateTrackedEntityInstanceTimestamp(trackedEntityInstance, dhisApi);
                     }
                 }
             }
-            else if(ImportSummary2.Status.SUCCESS.equals(response.getStatus()) ||
-                    ImportSummary2.Status.OK.equals(response.getStatus())) {
-                
-            }
 
         } catch (APIException apiException) {
-            if (importSummaries != null && !importSummaries.isEmpty()) {
-                for (ImportSummary2 importSummary : importSummaries) {
-                    TrackedEntityInstance trackedEntityInstance = trackedEntityInstanceMap.get(importSummary.getReference());
-                    NetworkUtils.handleTrackedEntityInstanceSendException(apiException, trackedEntityInstance);
-                }
+            if(apiException.getResponse().getStatus() > 201) { //if conflict try to re-send
+                sendTrackedEntityInstanceChanges(dhisApi, trackedEntityInstances, false); // sending one-by-one to see which one failed
             }
         }
     }
