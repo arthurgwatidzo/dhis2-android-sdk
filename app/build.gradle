@@ -107,4 +107,6 @@ dependencies {
     compile('commons-validator:commons-validator:1.4.0') {
         exclude module: 'commons-logging'
     }
+    compile 'io.fabric.sdk.android:fabric:1.3.10'
+    compile 'com.crashlytics.sdk.android:crashlytics:2.5.5'
 }
