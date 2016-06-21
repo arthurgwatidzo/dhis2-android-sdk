@@ -165,9 +165,10 @@ final class TrackerDataSender {
             }
 
         } catch (APIException apiException) {
-            if(apiException.getResponse().getStatus() == 409) { //if conflict try to re-send
+
+            //if(apiException.getResponse().getStatus() == 409) { //if conflict try to re-send
                 sendEventChanges(dhisApi, events); // sending one-by-one to see which one failed
-            }
+            //}
         }
     }
     static void sendEventChanges(DhisApi dhisApi, List<Event> events) throws APIException {
@@ -362,18 +363,42 @@ final class TrackerDataSender {
             }
         }
         Log.d(CLASS_TAG, "got this many enrollments to send:" + enrollments.size());
+        List<Enrollment> successfullEnrollments = new ArrayList<>();
         for (Enrollment enrollment : enrollments) {
-            sendEnrollmentChanges(dhisApi, enrollment, sendEvents);
+            Enrollment sentEnrollment = sendEnrollmentChanges(dhisApi, enrollment, sendEvents);
+            if(sentEnrollment != null) {
+                successfullEnrollments.add(sentEnrollment);
+            }
+        }
+
+        DateTime sentEnrollmentsDate = dhisApi.getSystemInfo().getServerDate();
+
+        for(Enrollment successfullEnrollment : successfullEnrollments) {
+            successfullEnrollment.setCreated(sentEnrollmentsDate.toString());
+            successfullEnrollment.setLastUpdated(sentEnrollmentsDate.toString());
+            successfullEnrollment.save();
         }
     }
 
-    static void sendEnrollmentChanges(DhisApi dhisApi, Enrollment enrollment, boolean sendEvents) throws APIException {
+    static Enrollment sendEnrollmentChanges(DhisApi dhisApi, Enrollment enrollment, boolean sendEvents) throws APIException {
         if (enrollment == null) {
-            return;
+            return null;
         }
         if (Utils.isLocal(enrollment.getTrackedEntityInstance())) {//don't send enrollment with locally made uid
-            return;
+            return null;
         }
+
+        TrackedEntityInstance trackedEntityInstance = TrackerController.getTrackedEntityInstance(enrollment.getTrackedEntityInstance());
+
+        if(trackedEntityInstance == null) {
+            return null;
+        }
+        else {
+            if(!trackedEntityInstance.isFromServer()) { // if TEI is not sent to server and trying to send enrollment first. Send TEI before enrollment
+                sendTrackedEntityInstanceChanges(dhisApi, trackedEntityInstance, false);
+            }
+        }
+
         boolean success;
 
         if(enrollment.getCreated() == null) {
@@ -389,6 +414,10 @@ final class TrackerDataSender {
                 sendEventChanges(dhisApi, events);
             }
         }
+        if(success) {
+            return enrollment;
+        }
+        else return null;
     }
 
     private static boolean postEnrollment(Enrollment enrollment, DhisApi dhisApi) throws APIException {
@@ -406,7 +435,7 @@ final class TrackerDataSender {
                     enrollment.setFromServer(true);
                     enrollment.save();
                     clearFailedItem(FailedItem.ENROLLMENT, enrollment.getLocalId());
-                    UpdateEnrollmentTimestamp(enrollment, dhisApi);
+                    //UpdateEnrollmentTimestamp(enrollment, dhisApi);
                 }
             }
         } catch (APIException apiException) {
@@ -430,7 +459,7 @@ final class TrackerDataSender {
                     enrollment.setFromServer(true);
                     enrollment.save();
                     clearFailedItem(FailedItem.ENROLLMENT, enrollment.getLocalId());
-                    UpdateEnrollmentTimestamp(enrollment, dhisApi);
+                    //UpdateEnrollmentTimestamp(enrollment, dhisApi);
                 }
             }
         } catch (APIException apiException) {
@@ -539,16 +568,30 @@ final class TrackerDataSender {
             return;
         }
         Log.d(CLASS_TAG, "got this many teis to send:" + trackedEntityInstances.size());
-
+        List<TrackedEntityInstance> successfulTrackedEntityInstances = new ArrayList<>();
         for (TrackedEntityInstance trackedEntityInstance: trackedEntityInstances) {
-            sendTrackedEntityInstanceChanges(dhisApi, trackedEntityInstance, sendEnrollments);
+            TrackedEntityInstance sentTrackedEntityInstance = sendTrackedEntityInstanceChanges(dhisApi, trackedEntityInstance, sendEnrollments);
+
+            if(sentTrackedEntityInstance != null) {
+                successfulTrackedEntityInstances.add(sentTrackedEntityInstance);
+            }
         }
+        DateTime serverDateTime = dhisApi.getSystemInfo().getServerDate();
+        for (TrackedEntityInstance successfulTrackedEntityInstance : successfulTrackedEntityInstances) {
+            successfulTrackedEntityInstance.setCreated(serverDateTime.toString());
+            successfulTrackedEntityInstance.setLastUpdated(serverDateTime.toString());
+            successfulTrackedEntityInstance.save();
+        }
+
     }
 
-    static void sendTrackedEntityInstanceChanges(DhisApi dhisApi, TrackedEntityInstance trackedEntityInstance, boolean sendEnrollments) throws APIException {
+    static TrackedEntityInstance sendTrackedEntityInstanceChanges(DhisApi dhisApi, TrackedEntityInstance trackedEntityInstance, boolean sendEnrollments) throws APIException {
         if (trackedEntityInstance == null) {
-            return;
+            return null;
         }
+
+
+
         boolean success;
         if(trackedEntityInstance.getCreated() == null) {
             success = postTrackedEntityInstance(trackedEntityInstance, dhisApi);
@@ -559,6 +602,12 @@ final class TrackerDataSender {
             List<Enrollment> enrollments = TrackerController.getEnrollments(trackedEntityInstance);
             sendEnrollmentChanges(dhisApi, enrollments, sendEnrollments);
         }
+
+        if(success) {
+            return trackedEntityInstance;
+        }
+        else return null;
+
     }
 
     private static boolean postTrackedEntityInstance(TrackedEntityInstance trackedEntityInstance, DhisApi dhisApi) throws APIException {
@@ -577,7 +626,7 @@ final class TrackerDataSender {
                     trackedEntityInstance.save();
 
                     clearFailedItem(FailedItem.TRACKEDENTITYINSTANCE, trackedEntityInstance.getLocalId());
-                    UpdateTrackedEntityInstanceTimestamp(trackedEntityInstance, dhisApi);
+                    //UpdateTrackedEntityInstanceTimestamp(trackedEntityInstance, dhisApi);
                 }
             }
         } catch (APIException apiException) {
@@ -599,7 +648,7 @@ final class TrackerDataSender {
                     trackedEntityInstance.setFromServer(true);
                     trackedEntityInstance.save();
                     clearFailedItem(FailedItem.TRACKEDENTITYINSTANCE, trackedEntityInstance.getLocalId());
-                    UpdateTrackedEntityInstanceTimestamp(trackedEntityInstance, dhisApi);
+                    //UpdateTrackedEntityInstanceTimestamp(trackedEntityInstance, dhisApi);
                 }
             }
         } catch (APIException apiException) {
